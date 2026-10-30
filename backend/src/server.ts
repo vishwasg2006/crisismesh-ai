@@ -23,7 +23,15 @@ import {
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5500",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const server = createServer(app);
@@ -478,6 +486,98 @@ app.post("/api/conflicts/:id/resolve", (req, res) => {
     });
   }
 });
+
+
+/* -------------------- REOPEN A CONFLICT -------------------- */
+
+app.post("/api/conflicts/:id/reopen", (req, res) => {
+  try {
+    const conflict = appState.conflicts.find(
+      (item) => item.id === req.params.id
+    );
+
+    if (!conflict) {
+      return res.status(404).json({
+        success: false,
+        message: "Conflict not found."
+      });
+    }
+
+    if (!conflict.resolved) {
+      return res.status(409).json({
+        success: false,
+        message: "This conflict is already open.",
+        conflict
+      });
+    }
+
+    const reviewer =
+      typeof req.body?.reviewer === "string"
+        ? req.body.reviewer.trim()
+        : "";
+
+    const note =
+      typeof req.body?.note === "string"
+        ? req.body.note.trim()
+        : "";
+
+    if (!reviewer || !note) {
+      return res.status(400).json({
+        success: false,
+        message: "Reviewer and reopening reason are required."
+      });
+    }
+
+    if (reviewer.length > 100 || note.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: "Reviewer must be at most 100 characters and note at most 1000 characters."
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    // Reopen the conflict without changing its original reports.
+    conflict.resolved = false;
+    conflict.resolvedAt = undefined;
+    conflict.resolvedBy = undefined;
+    conflict.resolutionNote = undefined;
+
+    appState.agentEvents.push({
+      id: randomUUID(),
+      agent: "Human Conflict Review",
+      message:
+        `Conflict ${conflict.id} reopened by ${reviewer}. ` +
+        `Reason: ${note}. Original reports were retained.`,
+      timestamp: now
+    });
+
+    // Persist the reopened status.
+    saveOfflineReports();
+
+    // Require a fresh plan based on the current conflict state.
+    currentPlan = null;
+
+    broadcastState();
+
+    return res.json({
+      success: true,
+      message: "Conflict reopened. Human review is required again.",
+      conflict
+    });
+  } catch (error) {
+    console.error("Conflict reopening failed:", error);
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to reopen conflict."
+    });
+  }
+});
+
 
 // -------------------- GET AGENT AUDIT LOG --------------------
 

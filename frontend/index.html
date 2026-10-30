@@ -1,0 +1,512 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7f9fc">
+  <title>CrisisMesh AI | Command Center</title>
+
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="script.js" defer></script>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <a href="#" class="brand" id="brandHome">
+      <div class="brand-mark">
+        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <path d="M20 3 36 12v16L20 37 4 28V12L20 3Z"
+                stroke="currentColor" stroke-width="1.8"/>
+          <path d="M20 10 27 14v8l-7 8-7-8v-8l7-4Z"
+                stroke="currentColor" stroke-width="1.8"/>
+          <circle cx="20" cy="20" r="3" fill="currentColor"/>
+        </svg>
+      </div>
+      <div>
+        <span class="brand-name">CrisisMesh</span>
+        <span class="brand-caption">INTELLIGENCE PLATFORM</span>
+      </div>
+    </a>
+
+    <div class="sidebar-label">OPERATIONS</div>
+
+    <nav class="navigation" aria-label="Main navigation">
+      <button class="nav-item active" type="button" data-view="overview">
+        <span class="nav-icon">◫</span>
+        <span>Command Center</span>
+      </button>
+      <button class="nav-item" type="button" data-view="incidents">
+        <span class="nav-icon">⌖</span>
+        <span>Incident Intelligence</span>
+        <span class="nav-count" id="navIncidentCount">—</span>
+      </button>
+      <button class="nav-item" type="button" data-view="resources">
+        <span class="nav-icon">◇</span>
+        <span>Resource Planning</span>
+      </button>
+      <button class="nav-item" type="button" data-view="conflicts">
+        <span class="nav-icon">⚑</span>
+        <span>Conflict Review</span>
+        <span class="nav-count alert-count" id="navConflictCount">—</span>
+      </button>
+      <button class="nav-item" type="button" data-view="approval">
+        <span class="nav-icon">✓</span>
+        <span>Plan Approval</span>
+      </button>
+      <button class="nav-item" type="button" data-view="activity">
+        <span class="nav-icon">≋</span>
+        <span>Activity Log</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="connection-card">
+        <span class="status-dot offline" id="sidebarDot"></span>
+        <div>
+          <strong id="sidebarConnection">Connecting...</strong>
+          <span>Backend connection</span>
+        </div>
+      </div>
+      <div class="sidebar-footer">CRISIS RESPONSE · ADVISORY SYSTEM</div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <div class="breadcrumb">
+        <span>Operations</span>
+        <span class="breadcrumb-separator">/</span>
+        <strong id="breadcrumbTitle">Command Center</strong>
+      </div>
+
+      <div class="topbar-right">
+        <div class="system-status">
+          <span class="status-dot offline" id="topStatusDot"></span>
+          <span id="topStatus">Checking backend</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="operator-avatar">OP</div>
+        <div class="operator-info">
+          <strong>Response Operator</strong>
+          <span>Human oversight enabled</span>
+        </div>
+        <button class="icon-button" type="button" id="refreshBtn"
+                title="Refresh data" aria-label="Refresh data">↻</button>
+      </div>
+    </header>
+
+    <div class="content-wrap">
+
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow">
+            <span class="live-indicator"></span>
+            <span id="pageEyebrow">DISASTER RESPONSE OVERVIEW</span>
+          </div>
+          <h1 id="pageTitle">Command Center<span class="heading-period">.</span></h1>
+          <p id="pageDescription">
+            A unified view of incoming incidents, response priorities, and available resources.
+          </p>
+        </div>
+        <div class="heading-actions">
+          <span class="simulation-badge"><span>◆</span> SIMULATION MODE</span>
+          <button class="btn btn-primary" type="button" id="recomputeBtn">
+            <span>↻</span> Recompute Plan
+          </button>
+        </div>
+      </section>
+
+      <div class="notice-banner">
+        <span class="notice-icon">ⓘ</span>
+        <div>
+          <strong>Human oversight is active</strong>
+          <span>Priorities and assignments are advisory. Verify field conditions before taking action. No resources are dispatched automatically.</span>
+        </div>
+      </div>
+
+      <!-- COMMAND CENTER -->
+      <section id="overviewView" class="view">
+        <div class="metrics-grid">
+          <article class="metric-card">
+            <div class="metric-top">
+              <span>Total Incidents</span><span class="metric-icon blue">⌖</span>
+            </div>
+            <div class="metric-value" id="totalIncidents">—</div>
+            <div class="metric-bottom">
+              <span class="metric-indicator blue-text">LIVE DATA</span>
+              <span>Reported situations</span>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-top">
+              <span>Critical Priority</span><span class="metric-icon red">⚠</span>
+            </div>
+            <div class="metric-value" id="criticalIncidents">—</div>
+            <div class="metric-bottom">
+              <span class="metric-indicator red-text">URGENT</span>
+              <span>Requires human review</span>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-top">
+              <span>Resources Assigned</span><span class="metric-icon green">◇</span>
+            </div>
+            <div class="metric-value" id="assignedResources">—</div>
+            <div class="metric-bottom">
+              <span class="metric-indicator green-text">PROPOSED</span>
+              <span>Awaiting approval</span>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-top">
+              <span>Open Conflicts</span><span class="metric-icon amber">⚑</span>
+            </div>
+            <div class="metric-value" id="openConflicts">—</div>
+            <div class="metric-bottom">
+              <span class="metric-indicator amber-text">REVIEW</span>
+              <span>Require verification</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="overview-grid">
+          <article class="panel incident-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-kicker">SITUATIONAL AWARENESS</div>
+                <h2>Priority Incidents</h2>
+                <p>Ranked by explainable weighted scoring</p>
+              </div>
+              <button class="text-button" type="button" data-go="incidents">
+                View all ↗
+              </button>
+            </div>
+
+            <div class="priority-legend">
+              <span><i class="legend-dot critical"></i>Critical</span>
+              <span><i class="legend-dot high"></i>High</span>
+              <span><i class="legend-dot medium"></i>Medium</span>
+              <span><i class="legend-dot low"></i>Low</span>
+            </div>
+
+            <div id="priorityList" class="priority-list">
+              <div class="empty-state">Loading incident intelligence...</div>
+            </div>
+
+            <div class="panel-footer">
+              <span>Scoring: severity 40 · affected people 30 · freshness 20 · reliability 10</span>
+            </div>
+          </article>
+
+          <article class="panel resource-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-kicker">LOGISTICS OVERVIEW</div>
+                <h2>Resource Allocation</h2>
+                <p>Current proposed assignments</p>
+              </div>
+              <button class="text-button" type="button" data-go="resources">
+                Details ↗
+              </button>
+            </div>
+
+            <div class="allocation-summary">
+              <div class="allocation-ring" id="allocationRing">
+                <div class="ring-center">
+                  <strong id="allocationPercent">—</strong>
+                  <span>assigned</span>
+                </div>
+              </div>
+              <div class="allocation-stats">
+                <div><span class="stat-square green-square"></span><span>Assigned resources</span><strong id="assignedStat">—</strong></div>
+                <div><span class="stat-square gray-square"></span><span>Unassigned</span><strong id="unassignedStat">—</strong></div>
+                <div><span class="stat-square amber-square"></span><span>Incidents without allocation</span><strong id="unplannedStat">—</strong></div>
+              </div>
+            </div>
+
+            <div class="resource-warning" id="resourceWarning">
+              <span>⚠</span>
+              <div><strong>Coverage needs review</strong><p>Allocation warnings will appear here.</p></div>
+            </div>
+
+            <div class="panel-footer">
+              <span>Assignments require explicit human approval.</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="bottom-grid">
+          <article class="panel warnings-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-kicker">RISK MONITORING</div>
+                <h2>Operational Warnings</h2>
+              </div>
+              <span class="count-pill" id="warningCount">0</span>
+            </div>
+            <div id="warningList" class="warning-list">
+              <div class="empty-state">Loading warnings...</div>
+            </div>
+          </article>
+
+          <article class="panel approval-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-kicker">DECISION CONTROL</div>
+                <h2>Plan Status</h2>
+              </div>
+              <span class="status-pill proposed" id="planStatus">Loading</span>
+            </div>
+            <div class="plan-summary">
+              <div class="plan-summary-row"><span>Plan identifier</span><code id="planId">—</code></div>
+              <div class="plan-summary-row"><span>Planning method</span><strong>Explainable rules</strong></div>
+              <div class="plan-summary-row"><span>Human approval</span><strong class="amber-text">Required</strong></div>
+              <div class="plan-summary-row"><span>Resources dispatched</span><strong>No</strong></div>
+            </div>
+            <button class="btn btn-secondary full-width" type="button" data-go="approval">
+              Review proposed plan →
+            </button>
+            <p class="microcopy">This prototype never automatically dispatches real-world resources.</p>
+          </article>
+        </div>
+
+        <section class="panel activity-preview">
+          <div class="panel-header">
+            <div>
+              <div class="panel-kicker">SYSTEM TRACEABILITY</div>
+              <h2>Recent Activity</h2>
+              <p>Recorded backend events</p>
+            </div>
+            <button class="text-button" type="button" data-go="activity">
+              Full activity log ↗
+            </button>
+          </div>
+          <div id="recentActivity" class="activity-list">
+            <div class="empty-state">Loading activity...</div>
+          </div>
+        </section>
+      </section>
+
+      
+<!-- INCIDENT INTELLIGENCE -->
+<section class="panel data-view view hidden" id="incidentsView">
+  <div class="panel-header">
+    <div>
+      <div class="panel-kicker">SITUATIONAL AWARENESS</div>
+      <h2>All Incidents</h2>
+      <p>Priority scores and reasons for each incident</p>
+    </div>
+
+    <button class="btn btn-primary" type="button" id="openReportForm">
+      + Submit Report
+    </button>
+  </div>
+
+  <!-- NEW REPORT FORM -->
+  <div id="reportFormPanel" class="panel hidden" style="margin: 16px 0; padding: 24px;">
+    <h3>Submit Incident Report</h3>
+    <p class="microcopy">
+      Enter a field report. Submitted reports are sent to the local CrisisMesh backend.
+    </p>
+
+    <form id="reportForm">
+      <label for="reportDescription">Incident description</label>
+      <textarea
+        id="reportDescription"
+        rows="4"
+        maxlength="2000"
+        placeholder="Example: Water supply needed for 12 people."
+        required
+      ></textarea>
+
+      <label for="reportLocation">Location ID</label>
+      <select id="reportLocation" required>
+        <option value="place-a">Place A</option>
+        <option value="place-b">Place B</option>
+        <option value="place-c">Place C</option>
+      </select>
+
+      <label for="reportSource">Reporting source</label>
+      <select id="reportSource" required>
+        <option value="citizen">Citizen</option>
+        <option value="responder">Responder</option>
+        <option value="official">Official</option>
+      </select>
+
+      <div style="display:flex; gap:12px; margin-top:20px; flex-wrap:wrap;">
+        <button class="btn btn-primary" type="submit" id="submitReportBtn">
+          Submit Report
+        </button>
+        <button class="btn btn-secondary" type="button" id="cancelReportBtn">
+          Cancel
+        </button>
+      </div>
+
+      <p id="reportFormMessage" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Priority</th>
+          <th>Incident</th>
+          <th>Location</th>
+          <th>Score</th>
+          <th>People at risk</th>
+          <th>Freshness</th>
+          <th>Review</th>
+        </tr>
+      </thead>
+      <tbody id="incidentsTable"></tbody>
+    </table>
+  </div>
+</section>
+
+
+      <!-- RESOURCE PLANNING -->
+      <section class="panel data-view view hidden" id="resourcesView">
+        <div class="panel-header">
+          <div>
+            <div class="panel-kicker">LOGISTICS</div>
+            <h2>Resource Assignments</h2>
+            <p>Proposed allocation and coverage limitations</p>
+          </div>
+        </div>
+        <div id="resourceDetails"></div>
+        <h3 class="subheading">Unassigned incidents</h3>
+        <div id="unassignedList"></div>
+        <h3 class="subheading">Plan warnings</h3>
+        <div id="resourceWarnings"></div>
+      </section>
+
+      <!-- CONFLICT REVIEW -->
+      <section class="panel data-view view hidden" id="conflictsView">
+        <div class="panel-header">
+          <div>
+            <div class="panel-kicker">HUMAN VERIFICATION</div>
+            <h2>Conflict Review</h2>
+            <p>Review conflicting reports without assuming which one is correct.</p>
+          </div>
+        </div>
+        <div id="conflictList"></div>
+      </section>
+
+      <!-- PLAN APPROVAL -->
+      <section class="panel data-view view hidden" id="approvalView">
+        <div class="panel-header">
+          <div>
+            <div class="panel-kicker">HUMAN DECISION CONTROL</div>
+            <h2>Plan Approval</h2>
+            <p>Review the proposed plan before recording approval.</p>
+          </div>
+        </div>
+        <div id="approvalDetails"></div>
+        <div class="approval-form">
+          <label for="approverName">Approver identifier</label>
+          <input id="approverName" maxlength="100"
+                 placeholder="Enter authorized reviewer name or ID">
+          <button class="btn btn-primary" type="button" id="approveBtn">
+            Record Plan Approval
+          </button>
+          <p class="microcopy">
+            For authorized hackathon simulations only. Approval records a decision;
+            it does not dispatch rescue teams.
+          </p>
+        </div>
+      </section>
+
+      <!-- ACTIVITY LOG -->
+      <section class="panel data-view view hidden" id="activityView">
+        <div class="panel-header">
+          <div>
+            <div class="panel-kicker">AUDIT TRAIL</div>
+            <h2>Agent Activity Log</h2>
+            <p>Recent system events from the backend</p>
+          </div>
+        </div>
+        <div id="fullActivity"></div>
+      </section>
+
+      <footer class="page-footer">
+        <span><span class="footer-dot"></span> CrisisMesh AI · Explainable crisis response prototype</span>
+        <span>Advisory only · Human verification required</span>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<!-- CONFLICT REVIEW MODAL -->
+<div class="modal-backdrop hidden" id="reviewModal">
+  <div class="modal">
+    <div class="modal-heading">
+      <div>
+        <div class="panel-kicker">HUMAN REVIEW</div>
+        <h2>Review report conflict</h2>
+      </div>
+      <button class="icon-button" type="button" id="closeModal" aria-label="Close">×</button>
+    </div>
+
+    <p class="modal-description">
+      Record that this conflict has been reviewed. Resolution does not independently
+      verify which report is accurate.
+    </p>
+
+    <form id="reviewForm">
+      <input type="hidden" id="reviewConflictId">
+
+      <label for="reviewerName">Reviewer identifier</label>
+      <input id="reviewerName" maxlength="100"
+             placeholder="Your name or reviewer ID" required>
+
+      <label for="reviewNote">Review note</label>
+      <textarea id="reviewNote" maxlength="1000" rows="4"
+                placeholder="Explain what was reviewed and what still needs verification..."
+                required></textarea>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="cancelReview">Cancel</button>
+        <button type="submit" class="btn btn-primary">Record Review</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+<!-- Incident Details Modal -->
+<div id="incidentDetailsModal" class="modal-overlay hidden">
+  <div class="modal-card incident-details-modal" role="dialog"
+       aria-modal="true" aria-labelledby="incidentDetailsTitle">
+
+    <div class="modal-header">
+      <div>
+        <p class="page-eyebrow">INCIDENT INTELLIGENCE</p>
+        <h2 id="incidentDetailsTitle">Incident Details</h2>
+      </div>
+      <button id="closeIncidentDetails" class="btn btn-secondary"
+              type="button">Close</button>
+    </div>
+
+    <div id="incidentDetailsContent">
+      <p>Loading incident details...</p>
+    </div>
+
+    <p class="microcopy">
+      This is a simulated decision-support system. Confirm critical
+      information with field responders before taking action.
+    </p>
+  </div>
+</div>
+
+</body>
+</html>

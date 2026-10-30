@@ -51,7 +51,6 @@ export type ResponsePlan = {
   warnings: string[];
 };
 
-
 const SEVERITY: Record<string, number> = {
   people_trapped: 40,
   rescue_required: 39,
@@ -64,7 +63,6 @@ const SEVERITY: Record<string, number> = {
   food_supply: 28,
   unknown: 15,
 };
-
 
 function getPriorityLevel(score: number): PriorityLevel {
   if (score >= 75) return "CRITICAL";
@@ -112,7 +110,9 @@ function scoreIncident(
   ];
 
   if (incident.peopleAtRisk === null) {
-    reasons.push("Affected-person count is unknown; confirm it with responders.");
+    reasons.push(
+      "Affected-person count is unknown; confirm it with responders."
+    );
   } else {
     reasons.push(`${people} people reported at risk.`);
   }
@@ -125,8 +125,18 @@ function scoreIncident(
     reasons.push("Conflicting reports require human review.");
   }
 
-  if (incident.flags.length > 0) {
-    reasons.push(`Flags: ${incident.flags.join(", ")}.`);
+  // Hide only the historical headcount-conflict flag after resolution.
+  // Preserve all unrelated flags and historical conflict records.
+  const visibleFlags = incident.flags.filter((flag) => {
+    if (flag.toLowerCase().includes("headcount conflict")) {
+      return unresolvedConflict;
+    }
+
+    return true;
+  });
+
+  if (visibleFlags.length > 0) {
+    reasons.push(`Flags: ${visibleFlags.join(", ")}.`);
   }
 
   return {
@@ -151,9 +161,14 @@ function scoreIncident(
 
 function isResourceAvailable(resource: Resource): boolean {
   if (resource.available === false) return false;
-  if (resource.status && resource.status.toLowerCase() !== "available") {
+
+  if (
+    resource.status &&
+    resource.status.toLowerCase() !== "available"
+  ) {
     return false;
   }
+
   return Number(resource.capacity ?? 0) > 0;
 }
 
@@ -167,9 +182,24 @@ function isResourceCompatible(
     .replace(/[\s-]+/g, "_");
 
   const compatibleTypes: Record<string, string[]> = {
-    people_trapped: ["boat", "rescue_boat", "rescue_team", "helicopter"],
-    rescue_required: ["boat", "rescue_boat", "rescue_team", "helicopter"],
-    flood_water_level: ["boat", "rescue_boat", "rescue_team", "helicopter"],
+    people_trapped: [
+      "boat",
+      "rescue_boat",
+      "rescue_team",
+      "helicopter",
+    ],
+    rescue_required: [
+      "boat",
+      "rescue_boat",
+      "rescue_team",
+      "helicopter",
+    ],
+    flood_water_level: [
+      "boat",
+      "rescue_boat",
+      "rescue_team",
+      "helicopter",
+    ],
     medical: ["ambulance", "medical_team", "medical"],
     at_risk_facility: [
       "boat",
@@ -181,13 +211,20 @@ function isResourceCompatible(
     ],
     bridge_damaged: ["engineering_team", "inspection_team"],
     road_blocked: ["engineering_team", "road_clearance"],
-    water_supply: ["water_tanker", "water_supply", "supply_vehicle"],
-    food_supply: ["food_delivery", "food_supply", "supply_vehicle"],
+    water_supply: [
+      "water_tanker",
+      "water_supply",
+      "supply_vehicle",
+    ],
+    food_supply: [
+      "food_delivery",
+      "food_supply",
+      "supply_vehicle",
+    ],
   };
 
   return (compatibleTypes[incidentType] ?? []).includes(resourceType);
 }
-
 
 export function buildResponsePlan(
   incidents: Incident[],
@@ -218,11 +255,11 @@ export function buildResponsePlan(
     }
 
     const resource = availableResources.find(
-  (item) =>
-    !assignedResourceIds.has(item.id) &&
-    Number(item.capacity ?? 0) > 0 &&
-    isResourceCompatible(incident.type, item)
-);
+      (item) =>
+        !assignedResourceIds.has(item.id) &&
+        Number(item.capacity ?? 0) > 0 &&
+        isResourceCompatible(incident.type, item)
+    );
 
     if (!resource) {
       warnings.push(
