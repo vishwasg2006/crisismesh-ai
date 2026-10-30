@@ -26,6 +26,7 @@ export type Incident = {
   lastEventTime: string;
 };
 
+
 export type Conflict = {
   id: string;
   incidentId: string;
@@ -35,7 +36,11 @@ export type Conflict = {
   reportIds: string[];
   createdAt: string;
   resolved: boolean;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolutionNote?: string;
 };
+
 
 export type AgentEvent = {
   id: string;
@@ -103,80 +108,99 @@ function extractPeopleAtRisk(text: string): number | null {
   return null;
 }
 
+
 function classifyReport(
   text: string
 ): { type: string; confidence: number } {
   const value = text.toLowerCase();
 
+  // Explicit rescue requests and rescue resources.
   if (
-    /\b(trapped|stranded|stuck|people on roof|people on rooftop|cannot escape|can't escape)\b/.test(
+    /\b(rescue boat|rescue team|request(?:ing)? rescue|need rescue|rescue required|evacuation required|need evacuation|helicopter rescue)\b/.test(
+      value
+    )
+  ) {
+    return { type: "rescue_required", confidence: 0.9 };
+  }
+
+  // People who need immediate assistance.
+  if (
+    /\b(trapped|stranded|stuck|people on roof|people on rooftop|cannot escape|can't escape|unable to evacuate)\b/.test(
       value
     )
   ) {
     return { type: "people_trapped", confidence: 0.9 };
   }
 
+  // Medical emergencies.
   if (
-    /\b(medical emergency|injured|injury|ambulance|urgent medicine|medical help|patient critical)\b/.test(
+    /\b(medical emergency|injured|injury|ambulance|urgent medicine|medical help|patient critical|medical supplies)\b/.test(
       value
     )
   ) {
     return { type: "medical", confidence: 0.88 };
   }
 
+  // Facilities exposed to danger.
   if (
     /\b(hospital|clinic|nursing home|care home|school|shelter)\b/.test(value) &&
-    /\b(flood|water|damaged|blocked|danger|evacuat|cut off|cutoff)\b/.test(
+    /\b(flood|water|damaged|blocked|danger|evacuat|cut off|cutoff|stranded)\b/.test(
       value
     )
   ) {
     return { type: "at_risk_facility", confidence: 0.8 };
   }
 
+  // Damaged or unsafe bridges.
   if (
     /\b(bridge|overpass|culvert)\b/.test(value) &&
-    /\b(damaged|collapsed|collapse|unsafe|washed away|broken|inundated)\b/.test(
+    /\b(damaged|collapsed|collapse|unsafe|washed away|broken|inundated|impassable)\b/.test(
       value
     )
   ) {
     return { type: "bridge_damaged", confidence: 0.85 };
   }
 
+  // Blocked or inaccessible roads.
   if (
     /\b(road|street|highway|route|path)\b/.test(value) &&
-    /\b(blocked|closed|impassable|washed away|submerged|inaccessible)\b/.test(
+    /\b(blocked|closed|impassable|washed away|submerged|inaccessible|underwater)\b/.test(
       value
     )
   ) {
     return { type: "road_blocked", confidence: 0.82 };
   }
 
+  // Drinking water and water-supply shortages.
   if (
-    /\b(drinking water|water supply|clean water|no water|water shortage)\b/.test(
+    /\b(drinking water|water supply|clean water|no water|water shortage|water tanker)\b/.test(
       value
     )
   ) {
     return { type: "water_supply", confidence: 0.8 };
   }
 
+  // Food shortages.
   if (
-    /\b(food shortage|no food|food supply|need food|hungry|ration)\b/.test(
+    /\b(food shortage|no food|food supply|need food|hungry|ration|food packets)\b/.test(
       value
     )
   ) {
     return { type: "food_supply", confidence: 0.8 };
   }
 
+  // Flooding and dangerous water levels.
   if (
-    /\b(flood|flooded|flooding|rising water|water level|heavy rain|inundat)\b/.test(
+    /\b(flood|flooded|flooding|rising water|water level|water rising|heavy rain|inundat|waterlogging|waterlogged|overflowing river|dam overflow)\b/.test(
       value
     )
   ) {
-    return { type: "unknown", confidence: 0.55 };
+    return { type: "flood_water_level", confidence: 0.82 };
   }
 
   return { type: "unknown", confidence: 0.35 };
 }
+
 
 function addEvent(
   events: AgentEvent[],

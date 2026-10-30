@@ -1,18 +1,17 @@
 ﻿
 import express from "express";
 import cors from "cors";
-import { buildResponsePlan } from "./planner";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
+
 import {
   createTrackedPlan,
   approveTrackedPlan,
   TrackedPlan
 } from "./approval";
-
 
 import {
   processReport,
@@ -58,7 +57,7 @@ let currentPlan: TrackedPlan | null = null;
 
 // -------------------- WEBSOCKET BROADCAST --------------------
 
-function broadcastState() {
+function broadcastState(): void {
   const message = JSON.stringify({
     type: "STATE_UPDATE",
     data: appState
@@ -71,25 +70,94 @@ function broadcastState() {
   });
 }
 
-// -------------------- OFFLINE REPORT PERSISTENCE --------------------
+// -------------------- OFFLINE STATE PERSISTENCE --------------------
 
-const offlineStatePath = path.join(process.cwd(), "data", "offline-state.json");
+const offlineStatePath = path.join(
+  process.cwd(),
+  "data",
+  "offline-state.json"
+);
 
 function saveOfflineReports(): void {
-  fs.mkdirSync(path.dirname(offlineStatePath), { recursive: true });
+  fs.mkdirSync(path.dirname(offlineStatePath), {
+    recursive: true
+  });
+
   fs.writeFileSync(
     offlineStatePath,
-    JSON.stringify({ reports: appState.reports }, null, 2),
+    JSON.stringify(
+      {
+        reports: appState.reports,
+        conflicts: appState.conflicts
+      },
+      null,
+      2
+    ),
     "utf-8"
   );
 }
 
-function loadOfflineReports(): Report[] {
-  if (!fs.existsSync(offlineStatePath)) return [];
+function loadOfflineState(): {
+  reports: Report[];
+  conflicts: Conflict[];
+} {
+  if (!fs.existsSync(offlineStatePath)) {
+    return {
+      reports: [],
+      conflicts: []
+    };
+  }
 
-  const parsed = JSON.parse(fs.readFileSync(offlineStatePath, "utf-8"));
-  return Array.isArray(parsed.reports) ? parsed.reports : [];
+  const parsed = JSON.parse(
+    fs.readFileSync(offlineStatePath, "utf-8")
+  );
+
+  return {
+    reports: Array.isArray(parsed.reports)
+      ? parsed.reports
+      : [],
+    conflicts: Array.isArray(parsed.conflicts)
+      ? parsed.conflicts
+      : []
+  };
 }
+
+// Restore human decisions after conflicts are rebuilt from reports.
+// Matching uses the location, conflict type, description and report IDs.
+function restoreConflictResolutions(
+  savedConflicts: Conflict[]
+): void {
+  for (const savedConflict of savedConflicts) {
+    if (!savedConflict.resolved) continue;
+
+    const savedReportIds = [...savedConflict.reportIds].sort();
+
+    const currentConflict = appState.conflicts.find(
+      (conflict) => {
+        const currentReportIds = [...conflict.reportIds].sort();
+
+        return (
+          conflict.placeId === savedConflict.placeId &&
+          conflict.kind === savedConflict.kind &&
+          conflict.description === savedConflict.description &&
+          currentReportIds.length === savedReportIds.length &&
+          currentReportIds.every(
+            (id, index) => id === savedReportIds[index]
+          )
+        );
+      }
+    );
+
+    if (currentConflict) {
+      currentConflict.resolved = true;
+      currentConflict.resolvedAt = savedConflict.resolvedAt;
+      currentConflict.resolvedBy = savedConflict.resolvedBy;
+      currentConflict.resolutionNote =
+        savedConflict.resolutionNote;
+    }
+  }
+}
+
 // -------------------- ADD REPORT --------------------
 
 function addReport(input: any): Report {
@@ -98,9 +166,13 @@ function addReport(input: any): Report {
     typeof input.rawText !== "string" ||
     !input.rawText.trim() ||
     typeof input.placeId !== "string" ||
-    !appState.places.some((place) => place.id === input.placeId)
+    !appState.places.some(
+      (place) => place.id === input.placeId
+    )
   ) {
-    throw new Error("Valid rawText and placeId are required.");
+    throw new Error(
+      "Valid rawText and placeId are required."
+    );
   }
 
   const now = new Date().toISOString();
@@ -115,7 +187,8 @@ function addReport(input: any): Report {
     rawText: input.rawText.trim(),
 
     source:
-      typeof input.source === "string" && input.source.trim()
+      typeof input.source === "string" &&
+      input.source.trim()
         ? input.source.trim()
         : "citizen",
 
@@ -128,15 +201,18 @@ function addReport(input: any): Report {
     receivedAt: now
   };
 
-  if (appState.reports.some((existing) => existing.id === report.id)) {
+  if (
+    appState.reports.some(
+      (existing) => existing.id === report.id
+    )
+  ) {
     throw new Error("Duplicate report ID.");
   }
 
-  // Save the original report for traceability.
+  // Preserve the original report for traceability.
   appState.reports.push(report);
 
-
-  // Process the report using the verification pipeline.
+  // Process the report through the verification pipeline.
   processReport(
     report,
     appState.incidents,
@@ -144,10 +220,7 @@ function addReport(input: any): Report {
     appState.conflicts
   );
 
-  // Persist the report after successful processing.
   saveOfflineReports();
-
-  // Notify connected frontend clients.
   broadcastState();
 
   return report;
@@ -171,7 +244,7 @@ app.get("/api/state", (_req, res) => {
 
 // -------------------- LOAD FLOOD SCENARIO --------------------
 
-app.post("/api/scenario/load", (_req, res) => {
+app.post("/api/scenario/load", (req, res) => {
   try {
     const filePath = path.join(
       process.cwd(),
@@ -197,8 +270,9 @@ app.post("/api/scenario/load", (_req, res) => {
       });
     }
 
-    const savedReports = loadOfflineReports();
-    // Reset state before loading a fresh scenario.
+    // Snapshot persisted data before addReport writes to disk.
+    const savedState = loadOfflineState();
+
     appState = {
       reports: [],
       incidents: [],
@@ -210,21 +284,40 @@ app.post("/api/scenario/load", (_req, res) => {
       conflicts: []
     };
 
-    // Validate and process each report through the same pipeline.
+    // Process scenario reports first.
     for (const report of scenario.reports || []) {
       addReport(report);
     }
 
-    
-    // Restore saved reports after scenario places are available.
-    for (const report of savedReports) {
-      if (appState.reports.some((existing) => existing.id === report.id)) continue;
-      if (!appState.places.some((place) => place.id === report.placeId)) continue;
+    // Restore previously submitted reports.
+    for (const report of savedState.reports) {
+      if (
+        appState.reports.some(
+          (existing) => existing.id === report.id
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        !appState.places.some(
+          (place) => place.id === report.placeId
+        )
+      ) {
+        continue;
+      }
+
       addReport(report);
     }
 
+    // Restore human conflict decisions after rebuilding conflicts.
+    restoreConflictResolutions(savedState.conflicts);
+
     saveOfflineReports();
     broadcastState();
+
+    // Plans must be regenerated against the loaded state.
+    currentPlan = null;
 
     return res.json({
       success: true,
@@ -257,6 +350,9 @@ app.post("/api/reports", (req, res) => {
   try {
     const report = addReport(req.body);
 
+    // New reports can change incident priorities.
+    currentPlan = null;
+
     return res.status(201).json({
       success: true,
       message: "Report received and processed.",
@@ -287,13 +383,111 @@ app.get("/api/conflicts", (_req, res) => {
   res.json(appState.conflicts);
 });
 
+// -------------------- RESOLVE A CONFLICT --------------------
+
+app.post("/api/conflicts/:id/resolve", (req, res) => {
+  try {
+    const conflictId = req.params.id;
+
+    const conflict = appState.conflicts.find(
+      (item) => item.id === conflictId
+    );
+
+    if (!conflict) {
+      return res.status(404).json({
+        success: false,
+        message: "Conflict not found."
+      });
+    }
+
+    if (conflict.resolved) {
+      return res.status(409).json({
+        success: false,
+        message: "This conflict has already been resolved.",
+        conflict
+      });
+    }
+
+    const reviewer =
+      typeof req.body?.reviewer === "string"
+        ? req.body.reviewer.trim()
+        : "";
+
+    const note =
+      typeof req.body?.note === "string"
+        ? req.body.note.trim()
+        : "";
+
+    if (!reviewer || !note) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Both reviewer and a resolution note are required."
+      });
+    }
+
+    if (reviewer.length > 100 || note.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Reviewer must be at most 100 characters and note at most 1000 characters."
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    // Record the review decision. Original reports are unchanged.
+    conflict.resolved = true;
+    conflict.resolvedAt = now;
+    conflict.resolvedBy = reviewer;
+    conflict.resolutionNote = note;
+
+    appState.agentEvents.push({
+      id: randomUUID(),
+      agent: "Human Conflict Review",
+      message:
+        `Conflict ${conflict.id} reviewed by ${reviewer}. ` +
+        `Decision note: ${note}. ` +
+        "Original reports were retained.",
+      timestamp: now
+    });
+
+    // Persist the decision and refresh connected clients.
+    saveOfflineReports();
+
+    // Existing proposals may no longer reflect current state.
+    currentPlan = null;
+
+    broadcastState();
+
+    return res.json({
+      success: true,
+      message:
+        "Conflict resolution recorded. Review does not independently verify the reports.",
+      conflict
+    });
+  } catch (error) {
+    console.error("Conflict resolution failed:", error);
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to resolve conflict."
+    });
+  }
+});
+
 // -------------------- GET AGENT AUDIT LOG --------------------
 
 app.get("/api/agent-events", (_req, res) => {
   res.json(appState.agentEvents);
 });
 
-function getCurrentPlan() {
+// -------------------- PLAN MANAGEMENT --------------------
+
+function getCurrentPlan(): TrackedPlan {
   if (!currentPlan) {
     currentPlan = createTrackedPlan(
       appState.incidents,
@@ -320,14 +514,15 @@ app.post("/api/plan/recompute", (_req, res) => {
 
   broadcastState();
 
-  res.json({
+  return res.json({
     success: true,
     message: "New plan proposed. Human approval is required.",
     plan: currentPlan
   });
 });
 
-// Explicit human approval.
+// -------------------- HUMAN PLAN APPROVAL --------------------
+
 app.post("/api/plan/approve", (req, res) => {
   try {
     const plan = getCurrentPlan();
@@ -356,9 +551,9 @@ app.post("/api/plan/approve", (req, res) => {
       });
     }
 
-    // Do not approve a plan containing unresolved conflicts.
+    // Block approval while any conflict remains unresolved.
     const unresolvedConflicts = appState.conflicts.filter(
-      conflict => !conflict.resolved
+      (conflict) => !conflict.resolved
     );
 
     if (unresolvedConflicts.length > 0) {
@@ -381,7 +576,8 @@ app.post("/api/plan/approve", (req, res) => {
 
     return res.json({
       success: true,
-      message: "Plan approved. No rescue team was automatically dispatched.",
+      message:
+        "Plan approved. No rescue team was automatically dispatched.",
       plan: approvedPlan
     });
   } catch (error) {
@@ -394,7 +590,6 @@ app.post("/api/plan/approve", (req, res) => {
     });
   }
 });
-
 
 // -------------------- WEBSOCKET CONNECTION --------------------
 
@@ -413,47 +608,75 @@ wss.on("connection", (socket) => {
   });
 });
 
-// -------------------- SERVER START --------------------
-
 // -------------------- STARTUP STATE INITIALIZATION --------------------
 
 function initializeOfflineState(): void {
-  const scenarioPath = path.join(process.cwd(), "data", "scenario.json");
+  const scenarioPath = path.join(
+    process.cwd(),
+    "data",
+    "scenario.json"
+  );
 
   if (!fs.existsSync(scenarioPath)) {
-    throw new Error(`Scenario file not found: ${scenarioPath}`);
+    throw new Error(
+      `Scenario file not found: ${scenarioPath}`
+    );
   }
 
-  const scenario = JSON.parse(fs.readFileSync(scenarioPath, "utf-8"));
+  const scenario = JSON.parse(
+    fs.readFileSync(scenarioPath, "utf-8")
+  );
 
   if (!Array.isArray(scenario.places)) {
     throw new Error("Scenario must contain a places array.");
   }
 
+  // Load saved data before replaying reports.
+  const savedState = loadOfflineState();
+
   appState = {
     reports: [],
     incidents: [],
-    resources: Array.isArray(scenario.resources) ? scenario.resources : [],
+    resources: Array.isArray(scenario.resources)
+      ? scenario.resources
+      : [],
     places: scenario.places,
     agentEvents: [],
     conflicts: []
   };
 
-  const savedReports = loadOfflineReports();
-  // Process base scenario reports first.
+  // Rebuild state from the original scenario.
   for (const report of scenario.reports || []) {
     addReport(report);
   }
 
-  // Restore saved reports that aren't already in the base scenario.
-  for (const report of savedReports) {
-    if (appState.reports.some((existing) => existing.id === report.id)) continue;
-    if (!appState.places.some((place) => place.id === report.placeId)) continue;
+  // Replay additional saved reports.
+  for (const report of savedState.reports) {
+    if (
+      appState.reports.some(
+        (existing) => existing.id === report.id
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      !appState.places.some(
+        (place) => place.id === report.placeId
+      )
+    ) {
+      continue;
+    }
+
     addReport(report);
   }
 
+  // Restore resolutions after conflicts have been reconstructed.
+  restoreConflictResolutions(savedState.conflicts);
+
   saveOfflineReports();
 }
+
 const PORT = Number(process.env.PORT) || 5000;
 
 initializeOfflineState();
@@ -470,9 +693,3 @@ server.listen(PORT, () => {
   console.log(`WebSocket:    ws://localhost:${PORT}/ws`);
   console.log("------------------------------------");
 });
-
-
-
-
-
-

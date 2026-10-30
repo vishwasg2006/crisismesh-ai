@@ -51,16 +51,20 @@ export type ResponsePlan = {
   warnings: string[];
 };
 
+
 const SEVERITY: Record<string, number> = {
   people_trapped: 40,
+  rescue_required: 39,
   medical: 38,
   at_risk_facility: 34,
   bridge_damaged: 30,
+  flood_water_level: 32,
   road_blocked: 27,
   water_supply: 28,
   food_supply: 28,
   unknown: 15,
 };
+
 
 function getPriorityLevel(score: number): PriorityLevel {
   if (score >= 75) return "CRITICAL";
@@ -153,6 +157,38 @@ function isResourceAvailable(resource: Resource): boolean {
   return Number(resource.capacity ?? 0) > 0;
 }
 
+function isResourceCompatible(
+  incidentType: string,
+  resource: Resource
+): boolean {
+  const resourceType = String(resource.type ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  const compatibleTypes: Record<string, string[]> = {
+    people_trapped: ["boat", "rescue_boat", "rescue_team", "helicopter"],
+    rescue_required: ["boat", "rescue_boat", "rescue_team", "helicopter"],
+    flood_water_level: ["boat", "rescue_boat", "rescue_team", "helicopter"],
+    medical: ["ambulance", "medical_team", "medical"],
+    at_risk_facility: [
+      "boat",
+      "rescue_boat",
+      "rescue_team",
+      "helicopter",
+      "ambulance",
+      "medical_team",
+    ],
+    bridge_damaged: ["engineering_team", "inspection_team"],
+    road_blocked: ["engineering_team", "road_clearance"],
+    water_supply: ["water_tanker", "water_supply", "supply_vehicle"],
+    food_supply: ["food_delivery", "food_supply", "supply_vehicle"],
+  };
+
+  return (compatibleTypes[incidentType] ?? []).includes(resourceType);
+}
+
+
 export function buildResponsePlan(
   incidents: Incident[],
   resources: Resource[],
@@ -182,10 +218,11 @@ export function buildResponsePlan(
     }
 
     const resource = availableResources.find(
-      (item) =>
-        !assignedResourceIds.has(item.id) &&
-        Number(item.capacity ?? 0) > 0
-    );
+  (item) =>
+    !assignedResourceIds.has(item.id) &&
+    Number(item.capacity ?? 0) > 0 &&
+    isResourceCompatible(incident.type, item)
+);
 
     if (!resource) {
       warnings.push(
