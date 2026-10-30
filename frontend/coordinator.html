@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <title>Coordinator | CrisisMesh AI</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/utils.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/offline.js" defer></script>
+  <script src="js/reports.js" defer></script>
+  <script src="js/data.js" defer></script>
+  <script src="js/map.js" defer></script>
+  <script src="js/coordinator.js" defer></script>
+  <style>
+    #splitBanner{background:#7f1d1d;color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:14px;font-weight:600}
+    #splitBanner button{margin-left:10px}
+    .merge-item{border-left:4px solid #d83b43;padding:8px 12px;margin:8px 0;border-radius:6px;background:rgba(127,127,127,.12)}
+    .merge-item.auto{border-color:#22a559}
+    .merge-item .button-row{margin-top:8px}
+    .claim-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+    .claim-table td,.claim-table th{padding:4px 8px;border-bottom:1px solid rgba(127,127,127,.3);text-align:left}
+    .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(127,127,127,.25)}
+    .pill.approved{background:#14532d;color:#bbf7d0}.pill.void,.pill.revoked{background:#7f1d1d;color:#fecaca}
+    .echo-badge{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:6px;font-size:12px;background:#92400e;color:#fff}
+    .indep-badge{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:6px;font-size:12px;background:rgba(127,127,127,.25)}
+  </style>
+</head>
+
+<body class="dashboard-page">
+
+  <header class="topbar">
+
+    <a href="index.html" class="brand">
+      <span class="brand-mark">✦</span>
+
+      <span>
+        CrisisMesh AI
+        <small>Coordinator command centre</small>
+      </span>
+    </a>
+
+    <div class="header-actions">
+
+      <span class="sim-badge">SIMULATION MODE</span>
+
+      <span id="connectionStatus" class="connection-pill">
+        Checking...
+      </span>
+
+      <a href="index.html" class="back-link">
+        ← Home
+      </a>
+
+    </div>
+
+  </header>
+
+  <main class="dashboard">
+
+    <div id="splitBanner" hidden></div>
+
+    <!-- PAGE HEADING -->
+
+    <section class="page-heading">
+
+      <div>
+        <p class="eyebrow">EMERGENCY OPERATIONS</p>
+
+        <h1>Coordinator Dashboard</h1>
+
+        <p class="muted">
+          Monitor incidents and coordinate emergency response operations.
+        </p>
+      </div>
+
+      <div class="button-row">
+        <button class="secondary-button" id="refreshBtn">
+          ↻ Refresh
+        </button>
+
+        <button class="danger-button" id="resetBtn">
+          Reset Simulation
+        </button>
+      </div>
+
+    </section>
+
+    <!-- NETWORK CONTROLS -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Network Control</h2>
+          <p class="muted">
+            Manage connectivity simulation and data synchronization.
+          </p>
+        </div>
+
+        <span class="section-tag">Offline-first</span>
+      </div>
+
+      <div class="button-row">
+
+        <button class="secondary-button" id="offlineBtn">
+          Go Offline
+        </button>
+
+        <button class="primary-button" id="reconnectBtn">
+          Reconnect & Sync
+        </button>
+
+        <button class="secondary-button" id="diffBtn">
+          View Plan Changes
+        </button>
+
+        <button class="secondary-button" id="remoteBtn">
+          Receive Remote Reports
+        </button>
+
+        <button class="secondary-button" id="tickBtn">
+          Simulate +30 min
+        </button>
+
+      </div>
+
+      <div class="muted" id="networkDetails" aria-live="polite">
+        Loading network information...
+      </div>
+
+      <div id="syncResult" class="empty-state" hidden></div>
+
+    </section>
+
+    <!-- SPLIT-BRAIN MERGE -->
+
+    <section class="panel" id="mergePanel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Coordinator Sync &amp; Split-Brain Merge</h2>
+          <p class="muted">
+            Two coordinator laptops that worked apart can merge safely. Approved decisions are never
+            changed by a merge; clashes between two approvals are sent to a human.
+            This node: <strong id="nodeName">-</strong>
+          </p>
+        </div>
+
+        <span class="section-tag">Multi-coordinator</span>
+      </div>
+
+      <div class="button-row">
+        <input id="peerUrl" type="text" placeholder="Other laptop, e.g. http://192.168.1.20:4000"
+          style="min-width:300px;padding:8px;border-radius:6px;border:1px solid rgba(127,127,127,.5);background:transparent;color:inherit">
+        <button class="primary-button" id="peerSyncBtn">Sync with other coordinator</button>
+      </div>
+
+      <div id="mergeConflicts"></div>
+      <div id="claimsList"></div>
+
+    </section>
+
+    <!-- METRICS -->
+
+    <section class="metric-grid">
+
+      <article class="metric-card">
+        <span>Total Incidents</span>
+        <strong id="totalIncidents">4</strong>
+        <small>Synthetic scenario</small>
+      </article>
+
+      <article class="metric-card">
+        <span>Critical Incidents</span>
+        <strong id="criticalIncidents" class="critical-text">1</strong>
+        <small>Requires immediate attention</small>
+      </article>
+
+      <article class="metric-card">
+        <span>Available Teams</span>
+        <strong id="availableTeams">2</strong>
+        <small>Synthetic scenario</small>
+      </article>
+
+      <article class="metric-card">
+        <span>Pending Reports</span>
+        <strong id="pendingReports" class="warning-text">0</strong>
+        <small>Waiting for synchronization</small>
+      </article>
+
+    </section>
+    <!-- PENDING FIELD REPORTS -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Pending Field Reports</h2>
+          <p class="muted">
+            Reports received from field responders, including locally saved reports.
+          </p>
+        </div>
+
+        <span class="section-tag" id="reportCountLabel">
+          0 Reports
+        </span>
+      </div>
+
+      <div id="fieldReportsList" class="incident-list">
+        <div class="empty-state">
+          No field reports received yet.
+        </div>
+      </div>
+
+    </section>
+    <!-- INCIDENTS AND APPROVALS -->
+
+    <section class="content-grid">
+
+      <div class="panel">
+
+        <div class="panel-heading">
+          <div>
+            <h2>Active Incidents</h2>
+            <p class="muted">Emergency situation overview</p>
+          </div>
+
+          <span class="section-tag">Synthetic scenario</span>
+        </div>
+
+        <div id="incidentList" class="incident-list"></div>
+
+      </div>
+
+      <div class="panel">
+
+        <div class="panel-heading">
+          <div>
+            <h2>Response Priorities</h2>
+            <p class="muted">Review incident urgency</p>
+          </div>
+        </div>
+
+        <div id="approvalList" class="approval-list"></div>
+
+      </div>
+
+    </section>
+
+    <!-- MAP -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Emergency Situation Map</h2>
+          <p class="muted">
+            Visual representation of simulated incident locations.
+          </p>
+        </div>
+
+        <span class="section-tag">Live map view</span>
+      </div>
+
+      <div id="emergencyMap" class="map-container"></div>
+
+    </section>
+
+    <!-- RESPONSE TEAMS -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Field Response Teams</h2>
+          <p class="muted">Team availability overview</p>
+        </div>
+
+        <span class="section-tag">Synthetic scenario</span>
+      </div>
+
+      <div id="teamList" class="team-grid"></div>
+
+    </section>
+
+    <!-- RESPONSE WORKFLOW -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <h2>Response Workflow</h2>
+      </div>
+
+      <div class="pipeline-grid">
+
+        <div class="pipeline-card">
+          <span class="pipeline-number">01</span>
+          <strong>Incident Detection</strong>
+          <p>Identify and register emergency reports.</p>
+        </div>
+
+        <div class="pipeline-card">
+          <span class="pipeline-number">02</span>
+          <strong>Priority Assessment</strong>
+          <p>Evaluate severity and response urgency.</p>
+        </div>
+
+        <div class="pipeline-card">
+          <span class="pipeline-number">03</span>
+          <strong>Resource Allocation</strong>
+          <p>Assign available field teams.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+    <section class="panel situation-panel">
+
+      <h2>Operational Notice</h2>
+
+      <p>
+        This is a simulated emergency coordination environment.
+        Incident and team information displayed in this prototype
+        is illustrative and should not be used for real emergency decisions.
+      </p>
+
+    </section>
+
+  </main>
+
+  <script>
+    // Leaflet and application scripts are loaded with defer.
+  </script>
+
+</body>
+
+</html>
