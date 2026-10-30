@@ -1,0 +1,17 @@
+﻿node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+
+# Local runtime data
+backend/data/offline-state*.json
+
+# Backup copies
+backend-backup/
+backend/src/*.bak
+backend/src/*.backup
+backend/src/*.before-*
+
+backend/src/*.pretest-backup

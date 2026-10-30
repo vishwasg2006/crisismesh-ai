@@ -1,0 +1,66 @@
+
+{
+  "name": "CrisisMesh Flood Demo",
+  "places": [
+    {
+      "id": "place-a",
+      "name": "Village A",
+      "lat": 12.91,
+      "lng": 77.48
+    },
+    {
+      "id": "place-b",
+      "name": "Village B",
+      "lat": 12.92,
+      "lng": 77.49
+    },
+    {
+      "id": "place-c",
+      "name": "Place C Hotel",
+      "lat": 12.93,
+      "lng": 77.50
+    }
+  ],
+  "reports": [
+    {
+      "id": "r1",
+      "placeId": "place-a",
+      "rawText": "20 people trapped in Village A due to rising flood water",
+      "source": "volunteer"
+    },
+    {
+      "id": "r2",
+      "placeId": "place-c",
+      "rawText": "50 people trapped inside Place C Hotel",
+      "source": "field_team"
+    },
+    {
+      "id": "r3",
+      "placeId": "place-c",
+      "rawText": "Around 50 people stuck at Place C Hotel",
+      "source": "volunteer"
+    },
+    {
+      "id": "r4",
+      "placeId": "place-b",
+      "rawText": "Bridge near Village B collapsed due to flood",
+      "source": "citizen"
+    }
+  ],
+  "resources": [
+    {
+      "id": "boat-1",
+      "name": "Rescue Boat 1",
+      "type": "boat",
+      "capacity": 10,
+      "available": true
+    },
+    {
+      "id": "boat-2",
+      "name": "Rescue Boat 2",
+      "type": "boat",
+      "capacity": 15,
+      "available": true
+    }
+  ]
+}
