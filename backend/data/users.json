@@ -1,0 +1,38 @@
+[
+  {
+    "username": "coordinator",
+    "name": "Chief Coordinator",
+    "role": "coordinator",
+    "teamId": null,
+    "salt": "719b6ae020bafda9e69f0e16d14952f5",
+    "hash": "c9cc83ffb7fa549605109a37fc7bee8b470f9e96b3a79da1f4fd9ba71fc7b19b",
+    "createdAt": 1793406898739
+  },
+  {
+    "username": "responder1",
+    "name": "Rescue Truck Team 1",
+    "role": "responder",
+    "teamId": "T1",
+    "salt": "d4ed9f75da568072f8ec7fdc3ecb348f",
+    "hash": "e5c6ed616caddc81f4a72cfc23edf23e4d3318cc68a90ee788597058f0ab3b5d",
+    "createdAt": 1793406898810
+  },
+  {
+    "username": "responder2",
+    "name": "Medical Team 2",
+    "role": "responder",
+    "teamId": "T2",
+    "salt": "dd1bd1748f842d75a6ad37579f4ae33a",
+    "hash": "12a24809112508bb8d56711c747c5b01445c5fe1590e9a702865d63b44618b51",
+    "createdAt": 1793406898879
+  },
+  {
+    "username": "boat1",
+    "name": "Boat Alpha crew",
+    "role": "responder",
+    "teamId": "B1",
+    "salt": "1f60cc3953f46e55216386bbc8eaff0d",
+    "hash": "d702cb8c3fd07a26e0a884ef2f93bad37adc5cab8b69a9ebf6dcd74d49136cfc",
+    "createdAt": 1793406898939
+  }
+]

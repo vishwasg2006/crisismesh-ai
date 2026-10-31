@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CrisisMesh - Split Brain & Fake Crowds demo</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--tx:#e2e8f0;--mut:#94a3b8;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--acc:#3b82f6}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--tx);padding:16px;max-width:1200px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 8px}p.s{color:var(--mut);margin:0 0 12px}
+.card{background:var(--card);border-radius:10px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}.col{flex:1;min-width:300px}
+button{background:var(--acc);color:#fff;border:0;border-radius:6px;padding:8px 12px;margin:3px 4px 3px 0;cursor:pointer;font-size:13px}
+button.g{background:#475569}button.r{background:var(--bad)}button.o{background:var(--ok)}button:disabled{opacity:.5}
+input{background:#0b1220;color:var(--tx);border:1px solid #334155;border-radius:6px;padding:6px 8px;width:260px}
+table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:3px 6px;border-bottom:1px solid #334155;text-align:left}
+.tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;font-weight:600}
+.approved{background:#14532d;color:#86efac}.proposed{background:#334155}.void,.revoked{background:#7f1d1d;color:#fca5a5}
+.conf{border-left:4px solid var(--bad);padding:8px 10px;margin:6px 0;background:#0b1220;border-radius:4px}
+.conf.auto{border-color:var(--ok)}.conf.hum{border-color:var(--bad)}
+#log{white-space:pre-wrap;font:12px/1.4 Consolas,monospace;background:#020617;border-radius:8px;padding:10px;max-height:260px;overflow:auto}
+.step{color:var(--mut);font-size:12px;margin:6px 0 2px}
+</style></head><body>
+<h1>CrisisMesh - Split Brain &amp; Fake Crowds</h1>
+<p class="s">Two coordinator nodes (A and B) that worked apart and now merge. Start two servers first (ports 4000 and 4001, different NODE_ID and JSON_PATH).</p>
+
+<div class="card">
+  Node A <input id="ua" value="http://localhost:4000"> &nbsp; Node B <input id="ub" value="http://localhost:4001">
+  <button class="g" onclick="refresh()">Refresh</button>
+</div>
+
+<div class="card">
+  <h2>Demo 1 - an approved decision cannot be silently changed</h2>
+  <div class="step">Start clean, then:</div>
+  <button class="r" onclick="resetBoth()">0. Reset both nodes</button>
+  <button onclick="approveLatest('a','Asha')">1. A: human approves plan</button>
+  <button onclick="moveB1('b')">2. B: (offline) give boat B1 to a different place</button>
+  <button class="o" onclick="syncAB()">3. Reconnect: sync A &harr; B</button>
+  <div class="step">Expected: conflict "approved_wins" (green), A's approved plan unchanged, B1 stays where the human approved it on both nodes.</div>
+</div>
+
+<div class="card">
+  <h2>Demo 2 - two humans approved the same boat for different places</h2>
+  <button class="r" onclick="resetBoth()">0. Reset both nodes</button>
+  <button onclick="approveLatest('a','Asha')">1. A: approve plan</button>
+  <button onclick="moveB1('b')">2. B: give B1 to a different place</button>
+  <button onclick="approveLatest('b','Ben')">3. B: human approves too</button>
+  <button class="o" onclick="syncAB()">4. Reconnect: sync A &harr; B</button>
+  <div class="step">Expected: red "needs_human" conflict, B1 frozen. Press a "Keep ..." button below to decide - it creates a NEW draft for approval; nothing is silently edited.</div>
+</div>
+
+<div class="card">
+  <h2>Demo 3 - six copies of one message are not six witnesses</h2>
+  <button class="r" onclick="resetBoth()">0. Reset both nodes</button>
+  <button onclick="fakeCrowd()">1. Send 6 near-identical citizen reports to A</button>
+  <div class="step">Expected: ONE incident in Anchepalya, independent sources = 1, an "echo" flag, lower confidence, "verify first" warning on its boat.</div>
+  <div id="crowd"></div>
+</div>
+
+<div class="card" id="conflicts"><h2>Merge conflicts (on A)</h2><div id="clist">-</div></div>
+<div class="row">
+  <div class="col card"><h2>Node A</h2><div id="na">-</div></div>
+  <div class="col card"><h2>Node B</h2><div id="nb">-</div></div>
+</div>
+<div class="card"><h2>Log</h2><div id="log"></div></div>
+
+<script>
+const TOKEN=localStorage.getItem('crisismesh_token');
+let ME=null;try{ME=JSON.parse(localStorage.getItem('crisismesh_user')||'null')}catch(e){}
+if(!TOKEN||!ME||ME.role!=='coordinator'){location.replace('login.html?next=split-brain.html')}
+const $=id=>document.getElementById(id);
+const base=n=>$('u'+n).value.replace(/\/+$/,'')+'/api';
+const log=m=>{const l=$('log');l.textContent+=new Date().toLocaleTimeString()+'  '+m+'\n';l.scrollTop=l.scrollHeight};
+async function call(n,method,path,body){
+  const r=await fetch(base(n)+path,{method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},body:body===undefined?undefined:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(`${method} ${n.toUpperCase()}${path} -> ${r.status} ${j.error||''}`);
+  return j;
+}
+const run=async(label,fn)=>{try{log('> '+label);await fn();}catch(e){log('ERROR: '+e.message+(String(e.message).includes('Failed to fetch')?'  (is that server running? check the URL/port)':''))}await refresh()};
+
+function resetBoth(){return run('reset both',async()=>{await call('a','POST','/scenario/reset');await call('b','POST','/scenario/reset');$('crowd').innerHTML='';log('both nodes reset to PLAN-001')})}
+function approveLatest(n,by){return run(`node ${n.toUpperCase()}: approve latest plan as ${by}`,async()=>{
+  const p=await call(n,'GET','/plans/latest');
+  const r=await call(n,'POST',`/plans/${p.id}/approve`,{by});
+  log(`${r.id} ${r.status} by ${r.approvedBy}. Boats: `+r.assignments.filter(a=>a.mode==='water').map(a=>a.resourceId+'>'+a.settlementName).join(', '));
+})}
+function moveB1(n){return run(`node ${n.toUpperCase()}: move B1 to a different place`,async()=>{
+  const p=await call(n,'GET','/plans/latest');
+  const cur=p.assignments.find(a=>a.resourceId==='B1');
+  const target=p.assignments.find(a=>a.mode==='water'&&a.resourceId!=='B1'&&(!cur||a.settlementId!==cur.settlementId));
+  if(!target)throw new Error('no suitable assignment to give B1 to');
+  const r=await call(n,'PATCH',`/plans/${p.id}/assignments/${target.id}`,{resourceId:'B1',by:'Ben'});
+  log(`${r.id} (draft): B1 was on ${cur?cur.settlementName:'-'}, now on ${target.settlementName} (human lock)`);
+})}
+function syncAB(){return run('sync A <-> B',async()=>{
+  const r=await call('a','POST','/peer/sync',{peerUrl:$('ub').value.replace(/\/+$/,'')});
+  const m=r.merged;
+  log(`merged: ${m.reportsPulled} reports pulled, ${m.conflicts.length} conflict(s), ${m.needsHuman} need a human, approved assignments changed: ${m.approvedAssignmentsChanged}; peer also merged: ${r.peerAlsoMerged}`);
+})}
+function resolve(id,keep){return run('human resolves conflict',async()=>{
+  const r=await call('a','POST',`/merge/conflicts/${encodeURIComponent(id)}/resolve`,{keepClaimId:keep,by:'Asha'});
+  log('resolved. '+r.message+' New draft: '+r.planId);
+})}
+function fakeCrowd(){return run('send 6 near-identical citizen reports to A',async()=>{
+  const t='Anchepalya school area people trapped water rising fast need boat 12 people';
+  for(let i=0;i<6;i++)await call('a','POST','/reports',{source:'citizen',text:t+(i%2?' please':''),settlementId:'S6',reporterName:'Anonymous'});
+  const incs=await call('a','GET','/incidents');
+  const x=incs.find(i=>i.settlementId==='S6');
+  const p=await call('a','GET','/plans/latest');
+  const asg=p.assignments.filter(a=>a.settlementId==='S6');
+  $('crowd').innerHTML=`<table><tr><th>Incident</th><th>Reports</th><th>Independent sources</th><th>Confidence</th><th>Flags</th></tr>
+  <tr><td>${x.id} ${x.settlementName}</td><td>${x.reportIds.length}</td><td><b>${x.independentSources}</b></td><td>${x.confidence}</td><td>${x.flags.map(f=>f.type).join(', ')}</td></tr></table>
+  <p>${x.flags.filter(f=>f.type==='echo').map(f=>f.message).join('<br>')}</p>
+  <p>${asg.map(a=>a.resourceId+': '+(a.warnings.join(' ')||'no warning')).join('<br>')}</p>`;
+  log(`Anchepalya: ${x.reportIds.length} reports -> ${x.independentSources} independent source(s), confidence ${x.confidence}`);
+})}
+
+const tag=s=>`<span class="tag ${s}">${s}</span>`;
+function nodeHtml(st,plans){
+  const ap=st.plan&&st.approvedPlanId;
+  const boats=(st.plan?.assignments||[]).filter(a=>a.mode==='water').map(a=>`<tr><td>${a.resourceId}</td><td>${a.settlementName}</td><td>${a.locked?'human lock':''}</td></tr>`).join('');
+  const cl=st.claims.filter(c=>c.status!=='void'||true).map(c=>`<tr><td>${c.resourceId}</td><td>${c.settlementName}</td><td>${c.nodeId}</td><td>${tag(c.status)}${c.contested?' <b style="color:#f87171">CONTESTED</b>':''}</td></tr>`).join('');
+  return `<p>node <b>${st.node}</b> &middot; latest plan <b>${st.plan?.id}</b> ${tag(st.plan?.status==='draft'?'proposed':st.plan?.status)} &middot; approved plan: <b>${st.approvedPlanId||'none'}</b></p>
+  <p style="margin:6px 0 2px;color:#94a3b8">Boats in latest plan</p><table><tr><th>Boat</th><th>Place</th><th></th></tr>${boats||'<tr><td>-</td></tr>'}</table>
+  <p style="margin:8px 0 2px;color:#94a3b8">Claims known to this node</p><table><tr><th>Boat</th><th>Place</th><th>By node</th><th>State</th></tr>${cl||'<tr><td>-</td></tr>'}</table>
+  ${(st.plan?.warnings||[]).filter(w=>w.startsWith('SPLIT')).map(w=>`<div class="conf hum">${w}</div>`).join('')}`;
+}
+async function refresh(){
+  for(const n of ['a','b']){
+    try{const st=await call(n,'GET','/state');$('n'+n).innerHTML=nodeHtml(st);
+      if(n==='a'){
+        const cs=st.mergeConflicts||[];
+        $('clist').innerHTML=cs.length?cs.map(c=>{
+          const hum=c.status==='needs_human';
+          const btns=hum?c.claimIds.map(id=>{const cl=st.claims.find(x=>x.id===id);return `<button class="o" onclick="resolve('${c.id}','${id}')">Keep ${cl?cl.resourceId+' > '+cl.settlementName+' (approved by '+cl.approvedBy+')':id}</button>`}).join(''):'';
+          return `<div class="conf ${hum?'hum':'auto'}"><b>${c.kind}</b> ${c.status} &middot; ${c.resourceId}<br>${c.message}<br>${btns}</div>`}).join(''):'No conflicts.';
+      }
+    }catch(e){$('n'+n).innerHTML='<span style="color:#f87171">Cannot reach node '+n.toUpperCase()+' at '+$('u'+n).value+'</span>'}
+  }
+}
+refresh();
+</script></body></html>

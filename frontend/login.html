@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Sign in | CrisisMesh AI</title>
+
+  <link rel="stylesheet" href="./css/styles.css" />
+
+  <script src="js/utils.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/auth.js" defer></script>
+  <script src="js/login.js" defer></script>
+</head>
+
+<body>
+
+  <header class="topbar">
+    <a href="index.html" class="brand">
+      <span class="brand-mark">✦</span>
+      <span>
+        CrisisMesh AI
+        <small>Emergency coordination system</small>
+      </span>
+    </a>
+    <div class="header-actions">
+      <span class="sim-badge">SIMULATION MODE</span>
+    </div>
+  </header>
+
+  <main class="login-wrap">
+
+    <section class="panel login-card">
+
+      <p class="eyebrow">ROLE-BASED ACCESS</p>
+      <h1>Sign in</h1>
+      <p class="muted">Coordinators approve plans. Responders run missions and send field reports.</p>
+
+      <div class="login-tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="login">Sign in</button>
+        <button type="button" class="tab" data-tab="register">Create account</button>
+      </div>
+
+      <!-- SIGN IN -->
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginUser">Username</label>
+          <input id="loginUser" class="form-control" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPass">Password</label>
+          <input id="loginPass" type="password" class="form-control" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="primary-button">Sign in</button>
+      </form>
+
+      <!-- REGISTER -->
+      <form id="registerForm" hidden>
+        <div class="form-group">
+          <label for="regRole">I am a</label>
+          <select id="regRole" class="form-control">
+            <option value="responder">Field responder</option>
+            <option value="coordinator">Coordinator</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="regName">Display name</label>
+          <input id="regName" class="form-control" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="regUser">Username</label>
+          <input id="regUser" class="form-control" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="regPass">Password (min 6 characters)</label>
+          <input id="regPass" type="password" class="form-control" autocomplete="new-password" minlength="6" required>
+        </div>
+        <div class="form-group" id="teamGroup">
+          <label for="regTeam">Your team / boat</label>
+          <select id="regTeam" class="form-control"></select>
+        </div>
+        <div class="form-group" id="codeGroup" hidden>
+          <label for="regCode">Coordinator access code</label>
+          <input id="regCode" class="form-control" autocomplete="off">
+        </div>
+        <button type="submit" class="primary-button">Create account</button>
+      </form>
+
+      <div id="loginMessage" class="login-message" aria-live="polite"></div>
+
+      <div class="demo-accounts">
+        <strong>Demo accounts</strong>
+        <p>Coordinator: <code>coordinator</code> / <code>coord123</code></p>
+        <p>Responder (Rescue Truck Team 1): <code>responder1</code> / <code>resp123</code></p>
+        <p>Responder (Medical Team 2): <code>responder2</code> / <code>resp123</code></p>
+      </div>
+
+    </section>
+
+  </main>
+
+</body>
+
+</html>

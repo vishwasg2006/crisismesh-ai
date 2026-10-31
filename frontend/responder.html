@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Field Responder | CrisisMesh AI</title>
+
+  <link rel="stylesheet" href="./css/styles.css" />
+
+  <script src="js/utils.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/auth.js" defer></script>
+  <script src="js/offline.js" defer></script>
+  <script src="js/reports.js" defer></script>
+  <script src="js/data.js" defer></script>
+  <script src="js/responder.js" defer></script>
+</head>
+
+<body class="dashboard-page" data-require-role="any">
+
+  <header class="topbar">
+
+    <a href="index.html" class="brand">
+      <span class="brand-mark">✦</span>
+
+      <span>
+        CrisisMesh AI
+        <small>Field responder portal</small>
+      </span>
+    </a>
+
+    <div class="header-actions">
+
+      <span class="sim-badge">SIMULATION MODE</span>
+
+      <span id="responderNetwork" class="connection-pill">
+        Checking...
+      </span>
+
+      <a href="index.html" class="back-link">
+        ← Home
+      </a>
+
+    </div>
+
+  </header>
+
+  <main class="dashboard">
+
+    <section class="page-heading">
+
+      <div>
+        <p class="eyebrow">FIELD OPERATIONS</p>
+
+        <h1>Responder Dashboard</h1>
+
+        <p class="muted">
+          Manage assigned missions and submit field observations.
+        </p>
+      </div>
+
+    </section>
+
+    <!-- RESPONDER SELECTION -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Responder Profile</h2>
+          <p class="muted">Select your response team or boat.</p>
+        </div>
+
+        <span class="section-tag">Simulation</span>
+      </div>
+
+      <div class="form-group">
+
+        <label for="teamSelect">Select Team</label>
+
+        <select id="teamSelect" class="responder-select">
+          <option value="">Loading...</option>
+        </select>
+
+      </div>
+
+      <div id="teamSummary" class="team-summary">
+        Loading team details...
+      </div>
+
+    </section>
+
+    <!-- MISSION METRICS -->
+
+    <section class="metric-grid">
+
+      <article class="metric-card">
+        <span>Assigned Missions</span>
+        <strong id="assignedCount">0</strong>
+      </article>
+
+      <article class="metric-card">
+        <span>In Progress</span>
+        <strong id="progressCount">0</strong>
+      </article>
+
+      <article class="metric-card">
+        <span>Completed</span>
+        <strong id="completedCount">0</strong>
+      </article>
+
+      <article class="metric-card">
+        <span>Pending Reports</span>
+        <strong id="responderPending">0</strong>
+      </article>
+
+    </section>
+
+    <!-- MISSIONS -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Assigned Missions</h2>
+          <p class="muted">
+            View and update your team's missions.
+          </p>
+        </div>
+      </div>
+
+      <div id="missionList" class="mission-list"></div>
+
+    </section>
+
+    <!-- FIELD REPORT -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>Submit Field Observation</h2>
+          <p class="muted">
+            Record observations from the field.
+          </p>
+        </div>
+
+        <span class="section-tag">Report form</span>
+      </div>
+
+      <form id="reportForm">
+
+        <div class="form-group">
+
+          <label for="reportIncident">
+            Related Incident
+          </label>
+
+          <select id="reportIncident" class="form-control" required>
+            <option value="">Loading incidents...</option>
+          </select>
+
+        </div>
+
+        <div class="form-group">
+
+          <label for="reportType">Observation Type</label>
+
+          <select id="reportType" class="form-control" required>
+            <option value="">Select type</option>
+            <option value="People rescued">People rescued</option>
+            <option value="Medical assistance">Medical assistance</option>
+            <option value="Road blockage">Road blockage</option>
+            <option value="Water level">Water level update</option>
+            <option value="Resource requirement">Resource requirement</option>
+            <option value="Other">Other</option>
+          </select>
+
+        </div>
+
+        <div class="form-group">
+
+          <label for="peopleCount">People affected / rescued</label>
+
+          <input type="number" id="peopleCount" class="form-control" min="0" value="0" required>
+
+        </div>
+
+        <div class="form-group">
+
+          <label for="reportDescription">
+            Field Description
+          </label>
+
+          <textarea id="reportDescription" class="form-control" placeholder="Describe the current field situation..."
+            required></textarea>
+
+        </div>
+
+        <button type="submit" class="primary-button">
+          Submit Field Report
+        </button>
+
+      </form>
+
+      <div id="reportMessage" class="muted" aria-live="polite"></div>
+
+    </section>
+
+    <section class="panel">
+
+      <div class="panel-heading">
+        <div>
+          <h2>My Field Reports</h2>
+          <p class="muted">Pending until the coordinator reviews them.</p>
+        </div>
+      </div>
+
+      <div id="myReports"></div>
+
+    </section>
+
+    <section class="panel situation-panel">
+
+      <h2>Field Safety Notice</h2>
+
+      <p>
+        This responder interface is a simulation prototype.
+        Do not use it as a substitute for official emergency
+        communication or operational instructions.
+      </p>
+
+    </section>
+
+  </main>
+
+  <script>
+    // Responder functionality is handled by responder.js.
+  </script>
+
+</body>
+
+</html>
